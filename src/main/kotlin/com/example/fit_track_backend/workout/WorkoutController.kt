@@ -7,6 +7,11 @@ import org.springframework.web.bind.annotation.RestController
 
 @RestController()
 class WorkoutController {
+    @GetMapping("/api/v1/ping")
+    fun getPing(): String {
+        return "Status: UP"
+    }
+
     @PostMapping("/api/v1/workouts")
     fun createWorkout(
         @PathVariable userId: String
