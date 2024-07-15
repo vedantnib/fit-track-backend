@@ -26,7 +26,7 @@ enum class ExerciseType {
     LUNGES,
     LEG_EXTENSION,
     HAMSTRING_EXTENSION,
-    QUAD_MACHINE,
+    LEG_PRESS,
     LEG_DEADLIFTS,
     CALF_RAISES,
     ABS
