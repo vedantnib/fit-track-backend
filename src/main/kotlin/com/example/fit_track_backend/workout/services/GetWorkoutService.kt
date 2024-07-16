@@ -24,7 +24,7 @@ class GetWorkoutService {
     }
 
     fun getExercise(userId: String, workoutId: String, exerciseId: String): Exercise {
-        return firestoreService.getExercise(userId = userId, workoutId = exerciseId, exerciseId = exerciseId)
+        return firestoreService.getExercise(userId = userId, workoutId = workoutId, exerciseId = exerciseId)
     }
 
     fun getLatestExercise(userId: String, workoutId: String): Exercise {
@@ -33,6 +33,13 @@ class GetWorkoutService {
 
     fun getLatestCompletedWorkout(userId: String): Workout? {
         return firestoreService.getLatestCompletedWorkout(userId = userId)
+    }
+
+    fun getAllExercisesOfWorkoutForUser(userId: String, workoutId: String): List<Exercise> {
+        return firestoreService.getAllExercisesOfWorkoutForUser(
+            userId = userId,
+            workoutId= workoutId
+        )
     }
 
 }

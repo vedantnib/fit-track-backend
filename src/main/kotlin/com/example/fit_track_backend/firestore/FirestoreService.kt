@@ -43,25 +43,6 @@ open class FirestoreService {
         result.get()
         return exerciseRequest
     }
-
-//    fun getAllWorkoutsForUser(userId: String): List<Workout> {
-//        val workouts = mutableListOf<Workout>()
-//        val querySnapshot = workoutCollection.whereEqualTo("userId", userId).get().get()
-//        for (document in querySnapshot.documents) {
-//            val workoutId = document.id
-////            val workoutType: WorkoutType = document.getString("workoutType") as WorkoutType
-////            val status = document.getString("status") as WorkoutStatus
-//
-//            val workout = Workout(
-//                workoutId = workoutId,
-//                userId = userId,
-////                workoutType = workoutType,
-////                status = status
-//            )
-//            workouts.add(workout)
-//        }
-//        return workouts
-//    }
 @Throws(ExecutionException::class, InterruptedException::class)
 fun getAllWorkoutsForUser(userId: String, status: String? = null): List<Workout> {
     val workouts = mutableListOf<Workout>()
@@ -129,12 +110,17 @@ fun getAllWorkoutsForUser(userId: String, status: String? = null): List<Workout>
     fun getExercise(userId: String, workoutId: String, exerciseId: String): Exercise {
         val exerciseDocument = workoutCollection.document(workoutId).collection("exercises").document(exerciseId).get().get()
         val data = exerciseDocument.data ?: throw IllegalArgumentException("Exercise not found")
+        val weight = when (val weightData = data["weight"]) {
+            is Long -> weightData.toDouble()
+            is Double -> weightData
+            else -> throw IllegalArgumentException("Invalid weight type")
+        }
 
         return Exercise(
             exerciseId = exerciseDocument.id,
             exerciseType = data["exerciseType"]?.let { ExerciseType.valueOf(it as String) },
             reps = (data["reps"] as Long).toInt(),
-            weight = data["weight"] as Double,
+            weight = weight,
             srNo = (data["srNo"] as Long).toInt(),
             createdAt = (data["createdAt"] as Timestamp).toDate()
         )
@@ -147,12 +133,17 @@ fun getAllWorkoutsForUser(userId: String, status: String? = null): List<Workout>
         val document = querySnapshot.documents.firstOrNull() ?: throw IllegalArgumentException("No exercises found for the workout")
 
         val data = document.data ?: throw IllegalArgumentException("Exercise data not found")
+        val weight = when (val weightData = data["weight"]) {
+            is Long -> weightData.toDouble()
+            is Double -> weightData
+            else -> throw IllegalArgumentException("Invalid weight type")
+        }
 
         return Exercise(
             exerciseId = document.id,
             exerciseType = data["exerciseType"]?.let { ExerciseType.valueOf(it as String) },
             reps = (data["reps"] as Long).toInt(),
-            weight = data["weight"] as Double,
+            weight = weight,
             srNo = (data["srNo"] as Long).toInt(),
             createdAt = (data["createdAt"] as Timestamp).toDate()
         )
@@ -204,4 +195,113 @@ fun getAllWorkoutsForUser(userId: String, status: String? = null): List<Workout>
             dateTime = (data["dateTime"] as Timestamp).toDate()
         )
     }
+
+    @Throws(ExecutionException::class, InterruptedException::class)
+    fun getLastNWorkoutsForUser(userId: String, n: Int): List<Workout> {
+        val workouts = mutableListOf<Workout>()
+        val query = workoutCollection
+            .whereEqualTo("userId", userId)
+            .whereEqualTo("status", WorkoutStatus.COMPLETED.name)
+            .orderBy("end", Query.Direction.DESCENDING)
+            .limit(n)
+
+        val querySnapshot = query.get().get()
+        for (document in querySnapshot.documents) {
+            val data = document.data ?: continue
+            val workout = Workout(
+                workoutId = document.id,
+                userId = data["userId"] as String,
+                workoutType = WorkoutType.valueOf(data["workoutType"] as String),
+                status = WorkoutStatus.valueOf(data["status"] as String),
+                start = (data["start"] as Timestamp).toDate(),
+                end = (data["end"] as Timestamp).toDate(),
+                dateTime = (data["dateTime"] as Timestamp).toDate()
+            )
+            workouts.add(workout)
+        }
+        return workouts
+    }
+
+    fun patchExercise(userId: String, workoutId: String, exerciseId: String, updates: Exercise): Exercise {
+        val exerciseRef = workoutCollection.document(workoutId).collection("exercises").document(exerciseId)
+
+        val updateData = mutableMapOf<String, Any>()
+
+        updates.exerciseType?.let { updateData["exerciseType"] = it.name }
+        updates.reps?.let { updateData["reps"] = it }
+        updates.weight?.let { updateData["weight"] = it }
+        updates.srNo?.let { updateData["srNo"] = it }
+
+        exerciseRef.update(updateData).get()
+
+        val updatedExerciseDoc = exerciseRef.get().get()
+        val data = updatedExerciseDoc.data ?: throw IllegalArgumentException("Exercise not found")
+        val weight = when (val weightData = data["weight"]) {
+            is Long -> weightData.toDouble()
+            is Double -> weightData
+            else -> throw IllegalArgumentException("Invalid weight type")
+        }
+        return Exercise(
+            exerciseId = updatedExerciseDoc.id,
+            exerciseType = data["exerciseType"]?.let { ExerciseType.valueOf(it as String) },
+            reps = (data["reps"] as Long).toInt(),
+            weight = weight,
+            srNo = (data["srNo"] as Long).toInt(),
+            createdAt = (data["createdAt"] as Timestamp).toDate()
+        )
+    }
+
+
+    @Throws(ExecutionException::class, InterruptedException::class)
+    fun getLatestWorkoutOfType(userId: String, workoutType: WorkoutType): Workout? {
+        val querySnapshot = workoutCollection
+            .whereEqualTo("userId", userId)
+            .whereEqualTo("workoutType", workoutType.name)
+            .orderBy("start", Query.Direction.DESCENDING)
+            .limit(1)
+            .get()
+            .get()
+
+        val document = querySnapshot.documents.firstOrNull() ?: return null
+
+        val data = document.data ?: throw IllegalArgumentException("Workout data not found")
+
+        return Workout(
+            userId = data["userId"] as String,
+            workoutId = document.id,
+            workoutType = WorkoutType.valueOf(data["workoutType"] as String),
+            status = WorkoutStatus.valueOf(data["status"] as String),
+            start = (data["start"] as Timestamp).toDate(),
+            end = (data["end"] as Timestamp).toDate(),
+            dateTime = (data["dateTime"] as Timestamp).toDate()
+        )
+    }
+
+    @Throws(ExecutionException::class, InterruptedException::class)
+    fun getAllExercisesOfWorkoutForUser(userId: String, workoutId: String): List<Exercise> {
+        val exercises = mutableListOf<Exercise>()
+        val exercisesCollection = workoutCollection.document(workoutId).collection("exercises")
+
+        val querySnapshot = exercisesCollection.orderBy("createdAt", Query.Direction.ASCENDING).get().get()
+
+        for (document in querySnapshot.documents) {
+            val data = document.data ?: continue
+            val weight = when (val weightData = data["weight"]) {
+                is Long -> weightData.toDouble()
+                is Double -> weightData
+                else -> throw IllegalArgumentException("Invalid weight type")
+            }
+            val exercise = Exercise(
+                exerciseId = document.id,
+                exerciseType = data["exerciseType"]?.let { ExerciseType.valueOf(it as String) },
+                reps = (data["reps"] as Long).toInt(),
+                weight = weight,
+                srNo = (data["srNo"] as Long).toInt(),
+                createdAt = (data["createdAt"] as Timestamp).toDate()
+            )
+            exercises.add(exercise)
+        }
+        return exercises
+    }
+
 }

@@ -57,13 +57,13 @@ class WorkoutController {
         return getWorkoutService.getWorkout(workoutId = workoutId)
     }
 
-    @GetMapping("/api/v1/workouts/{userId}/workout/{workoutId}/exercises")
-    fun getAllExercise(
-        @PathVariable userId: String,
-        @PathVariable workoutId: String,
-    ): List<Exercise> {
-        return getWorkoutService.getAllExercises(userId = userId, workoutId = workoutId)
-    }
+//    @GetMapping("/api/v1/workouts/{userId}/workout/{workoutId}/exercises")
+//    fun getAllExercise(
+//        @PathVariable userId: String,
+//        @PathVariable workoutId: String,
+//    ): List<Exercise> {
+//        return getWorkoutService.getAllExercises(userId = userId, workoutId = workoutId)
+//    }
 
     @GetMapping("/api/v1/workouts/{userId}/workout/{workoutId}/exercises/{exerciseId}")
     fun getExercise(
@@ -93,5 +93,28 @@ class WorkoutController {
     @GetMapping("/api/v1/workouts/{userId}/workout/latest")
     fun getLatestCompletedWorkout(@PathVariable userId: String): Workout? {
         return getWorkoutService.getLatestCompletedWorkout(userId = userId)
+    }
+
+    @PatchMapping("/api/v1/workouts/{userId}/workout/{workoutId}/exercises/{exerciseId}")
+    fun updateExercise(
+        @PathVariable userId: String,
+        @PathVariable workoutId: String,
+        @PathVariable exerciseId: String,
+        @RequestBody updates: Exercise
+    ): Exercise? {
+        return updateWorkoutService.updateExercise(
+            userId = userId,
+            workoutId = workoutId,
+            exerciseId = exerciseId,
+            updates = updates
+        )
+    }
+
+    @GetMapping("/api/v1/workouts/{userId}/workout/{workoutId}/exercises")
+    fun getAllExercises(
+        @PathVariable userId: String,
+        @PathVariable workoutId: String
+    ): List<Exercise>? {
+        return getWorkoutService.getAllExercisesOfWorkoutForUser(userId = userId, workoutId = workoutId)
     }
 }
