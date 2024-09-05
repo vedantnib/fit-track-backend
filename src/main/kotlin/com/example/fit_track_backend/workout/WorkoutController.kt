@@ -117,4 +117,9 @@ class WorkoutController {
     ): List<Exercise>? {
         return getWorkoutService.getAllExercisesOfWorkoutForUser(userId = userId, workoutId = workoutId)
     }
+
+    @GetMapping("/api/v1/workouts/{userId}/latest")
+    fun getLastNWorkoutsForUser(@PathVariable userId: String): List<Workout>? {
+        return getWorkoutService.getLastNWorkoutsForUser(userId = userId)
+    }
 }

@@ -42,4 +42,11 @@ class GetWorkoutService {
         )
     }
 
+    fun getLastNWorkoutsForUser(userId: String): List<Workout> {
+        return firestoreService.getLastNWorkoutsForUser(
+            userId = userId,
+            n = 100
+        )
+    }
+
 }
