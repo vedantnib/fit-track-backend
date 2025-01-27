@@ -1,16 +1,16 @@
 package com.example.fit_track_backend.firestore
 
+import com.example.fit_track_backend.user.models.GetUserRequest
+import com.example.fit_track_backend.user.models.GetUserResponse
 import com.example.fit_track_backend.workout.models.*
 import com.google.api.core.ApiFuture
 import com.google.cloud.Timestamp
-import com.google.cloud.firestore.CollectionReference
-import com.google.cloud.firestore.Firestore
-import com.google.cloud.firestore.Query
-import com.google.cloud.firestore.WriteResult
+import com.google.cloud.firestore.*
 import com.google.firebase.cloud.FirestoreClient
 import org.springframework.stereotype.Service
 import java.sql.Date
 import java.time.ZoneId
+import java.util.*
 import java.util.concurrent.ExecutionException
 
 
@@ -18,7 +18,7 @@ import java.util.concurrent.ExecutionException
 open class FirestoreService {
     val db: Firestore = FirestoreClient.getFirestore()
     val workoutCollection: CollectionReference = db.collection("workouts")
-    val userCollection: CollectionReference = db.collection("user")
+    val userCollection: CollectionReference = db.collection("users")
 
     @Throws(ExecutionException::class, InterruptedException::class)
     fun getDataFromFirestore(): Any? {
@@ -302,6 +302,33 @@ fun getAllWorkoutsForUser(userId: String, status: String? = null): List<Workout>
             exercises.add(exercise)
         }
         return exercises
+    }
+
+    fun getUserToken(getUserRequest: GetUserRequest): GetUserResponse {
+        // Fetch the user from Firestore using userName
+        val querySnapshot: QuerySnapshot = userCollection
+            .whereEqualTo("userName", getUserRequest.userName)
+            .get()
+            .get()
+
+        // If user does not exist, throw an error
+        if (querySnapshot.documents.isEmpty()) {
+            throw IllegalArgumentException("User not found")
+        }
+
+        val userDocument = querySnapshot.documents[0]
+        val storedPassword = userDocument.getString("password")
+
+        // Validate the provided password with the stored password
+        if (storedPassword != getUserRequest.password) {
+            throw IllegalArgumentException("Invalid password")
+        }
+
+        // Generate a token (for demo purposes, using a simple random UUID as a token)
+        val token = UUID.randomUUID().toString()
+
+        // Return the token in the response
+        return GetUserResponse(token = token, userId = getUserRequest.userName)
     }
 
 }
