@@ -1,13 +1,19 @@
 package com.example.fit_track_backend.firestore
 
+import com.example.fit_track_backend.user.models.CreateUserRequest
 import com.example.fit_track_backend.user.models.GetUserRequest
 import com.example.fit_track_backend.user.models.GetUserResponse
+import com.example.fit_track_backend.user.models.LoginRequest
 import com.example.fit_track_backend.workout.models.*
 import com.google.api.core.ApiFuture
 import com.google.cloud.Timestamp
 import com.google.cloud.firestore.*
+import com.google.firebase.auth.FirebaseAuth
+import com.google.firebase.auth.UserRecord
 import com.google.firebase.cloud.FirestoreClient
+import org.springframework.http.ResponseEntity
 import org.springframework.stereotype.Service
+import org.springframework.web.client.RestTemplate
 import java.sql.Date
 import java.time.ZoneId
 import java.util.*
@@ -329,6 +335,73 @@ fun getAllWorkoutsForUser(userId: String, status: String? = null): List<Workout>
 
         // Return the token in the response
         return GetUserResponse(token = token, userId = getUserRequest.userName)
+    }
+
+    fun registerUser(createUserRequest: CreateUserRequest): ResponseEntity<GetUserResponse>? {
+            // Step 1: Create Firebase user
+            val request = UserRecord.CreateRequest()
+                .setEmail(createUserRequest.email)
+                .setPassword(createUserRequest.password)
+                .setDisplayName(createUserRequest.userName)
+
+            val userRecord = FirebaseAuth.getInstance().createUser(request)
+
+            // Step 2: Save user metadata in Firestore (document ID = username)
+            val userDoc = mapOf(
+                "uid" to userRecord.uid,
+                "username" to createUserRequest.userName,
+                "email" to createUserRequest.email,
+                "lastSeenAt" to createUserRequest.lastSeenAt
+            )
+            userCollection.document(createUserRequest.userName).set(userDoc)
+
+            return ResponseEntity.ok(
+                GetUserResponse(
+                    token = userRecord.uid,
+                    userId = createUserRequest.userName
+                )
+            )
+        }
+
+    fun loginUser(loginRequest: LoginRequest): ResponseEntity<Any> {
+        try {
+            val restTemplate = RestTemplate()
+            val FIRESTORE_API_KEY = System.getenv("FIRESTORE_API_KEY")
+            // Step 1: Authenticate via Firebase REST API
+            val url = "https://identitytoolkit.googleapis.com/v1/accounts:signInWithPassword?key=$FIRESTORE_API_KEY"
+            val body = mapOf(
+                "email" to loginRequest.email,
+                "password" to loginRequest.password,
+                "returnSecureToken" to true
+            )
+
+            val response = restTemplate.postForEntity(url, body, Map::class.java)
+
+            val idToken = response.body?.get("idToken") as String
+            val uid = response.body?.get("localId") as String
+
+            // Step 2: Fetch username from Firestore
+            val query = userCollection.whereEqualTo("email", loginRequest.email).limit(1).get().get()
+
+            if (query.isEmpty) {
+                return ResponseEntity.badRequest().body(mapOf("error" to "User data not found in Firestore"))
+            }
+
+            val userDoc = query.documents[0]
+            val username = userDoc.getString("username") ?: "unknown"
+
+            // Optional: add more user data if needed
+            return ResponseEntity.ok(
+                mapOf(
+                    "message" to "Login successful",
+                    "idToken" to idToken,
+                    "username" to username,
+                    "uid" to uid
+                )
+            )
+        } catch (e: Exception) {
+            return ResponseEntity.badRequest().body(mapOf("error" to e.message))
+        }
     }
 
 }
